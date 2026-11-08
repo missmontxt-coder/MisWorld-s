@@ -1,6 +1,11 @@
 package com.misworlds.app
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -318,21 +323,30 @@ private fun MisWorldsApp(
 
             "world" -> {
                 val world = selectedWorld
-                Column(Modifier.fillMaxSize().padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center) {
-                    if (world != null) {
-                        Icon(world.icon, null, tint = world.color, modifier = Modifier.size(72.dp))
-                        Spacer(Modifier.height(16.dp))
-                        Text(world.title, color = Color.White, fontSize = 30.sp,
-                            fontWeight = FontWeight.Bold)
-                        Text(world.subtitle, color = Color(0xFFD8C5FF))
-                        Spacer(Modifier.height(20.dp))
-                        Text("Este espacio se desarrollará en la siguiente etapa.",
-                            color = Color.White, textAlign = TextAlign.Center)
+                if (world != null && world.title in listOf(
+                        "Creaciones", "Mi colección", "Mi música"
+                    )
+                ) {
+                    WorldFilesScreen(world = world) { screen = "home" }
+                } else {
+                    Column(
+                        Modifier.fillMaxSize().padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        if (world != null) {
+                            Icon(world.icon, null, tint = world.color, modifier = Modifier.size(72.dp))
+                            Spacer(Modifier.height(16.dp))
+                            Text(world.title, color = Color.White, fontSize = 30.sp,
+                                fontWeight = FontWeight.Bold)
+                            Text(world.subtitle, color = Color(0xFFD8C5FF))
+                            Spacer(Modifier.height(20.dp))
+                            Text("Este espacio se desarrollará en la siguiente etapa.",
+                                color = Color.White, textAlign = TextAlign.Center)
+                        }
+                        Spacer(Modifier.height(28.dp))
+                        MWButton("VOLVER A MIS MUNDOS") { screen = "home" }
                     }
-                    Spacer(Modifier.height(28.dp))
-                    MWButton("VOLVER A MIS MUNDOS") { screen = "home" }
                 }
             }
         }
@@ -712,3 +726,194 @@ private fun MWBackButton(onBack: () -> Unit) {
 }
 
 
+
+
+@Composable
+private fun WorldFilesScreen(
+    world: World,
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val prefs = remember {
+        context.getSharedPreferences("misworlds_local", Context.MODE_PRIVATE)
+    }
+
+    val storageKey = when (world.title) {
+        "Creaciones" -> "files_creaciones"
+        "Mi colección" -> "files_coleccion"
+        else -> "files_musica"
+    }
+
+    val selectedFiles = remember(world.title) {
+        mutableStateListOf<String>().apply {
+            addAll(prefs.getStringSet(storageKey, emptySet())?.toList().orEmpty())
+        }
+    }
+
+    val mimeTypes = when (world.title) {
+        "Creaciones" -> arrayOf("image/*")
+        "Mi música" -> arrayOf("audio/*")
+        else -> arrayOf(
+            "image/*",
+            "application/pdf",
+            "text/*",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    }
+
+    val picker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        uris.forEach { uri ->
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: SecurityException) {
+            }
+
+            val value = uri.toString()
+            if (value !in selectedFiles) {
+                selectedFiles.add(value)
+            }
+        }
+
+        prefs.edit()
+            .putStringSet(storageKey, selectedFiles.toSet())
+            .apply()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            world.icon,
+            contentDescription = null,
+            tint = world.color,
+            modifier = Modifier.size(64.dp)
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        Text(
+            world.title,
+            color = Color.White,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Text(
+            when (world.title) {
+                "Creaciones" -> "Carga tus imágenes desde tu dispositivo."
+                "Mi colección" -> "Guarda tus fotos, imágenes y documentos."
+                else -> "Agrega tus archivos de música y audio."
+            },
+            color = Color(0xFFD8C5FF),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        MWButton(
+            when (world.title) {
+                "Creaciones" -> "＋ CARGAR IMÁGENES"
+                "Mi colección" -> "＋ CARGAR FOTO O DOCUMENTO"
+                else -> "＋ SUBIR AUDIO"
+            }
+        ) {
+            picker.launch(mimeTypes)
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        Text(
+            "ARCHIVOS GUARDADOS (${selectedFiles.size})",
+            color = Cyan,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        if (selectedFiles.isEmpty()) {
+            Text(
+                "Todavía no has agregado archivos.",
+                color = Color.LightGray,
+                textAlign = TextAlign.Center
+            )
+        } else {
+            selectedFiles.toList().forEach { file ->
+                val uri = Uri.parse(file)
+                val fileName = remember(file) {
+                    var name = "Archivo"
+                    context.contentResolver.query(
+                        uri,
+                        arrayOf(OpenableColumns.DISPLAY_NAME),
+                        null,
+                        null,
+                        null
+                    )?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                            if (index >= 0) name = cursor.getString(index) ?: name
+                        }
+                    }
+                    name
+                }
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    color = Color(0xFF292348),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            when (world.title) {
+                                "Creaciones" -> Icons.Filled.Image
+                                "Mi música" -> Icons.Filled.MusicNote
+                                else -> Icons.Filled.InsertDriveFile
+                            },
+                            contentDescription = null,
+                            tint = world.color
+                        )
+
+                        Spacer(Modifier.width(10.dp))
+
+                        Text(
+                            fileName,
+                            color = Color.White,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 2
+                        )
+
+                        IconButton(onClick = {
+                            selectedFiles.remove(file)
+                            prefs.edit()
+                                .putStringSet(storageKey, selectedFiles.toSet())
+                                .apply()
+                        }) {
+                            Icon(
+                                Icons.Filled.Delete,
+                                contentDescription = "Eliminar archivo",
+                                tint = Pink
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(28.dp))
+        MWButton("VOLVER A MIS MUNDOS", onClick = onBack)
+    }
+}
