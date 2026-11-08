@@ -2,6 +2,7 @@ package com.misworlds.app
 
 import android.content.Context
 import android.content.Intent
+import android.media.MediaPlayer
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -750,6 +751,17 @@ private fun WorldFilesScreen(
         }
     }
 
+    val playerState = remember { mutableStateOf<MediaPlayer?>(null) }
+    var activeFile by remember { mutableStateOf<String?>(null) }
+    var isPlaying by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            playerState.value?.release()
+            playerState.value = null
+        }
+    }
+
     val mimeTypes = when (world.title) {
         "Creaciones" -> arrayOf("image/*")
         "Mi música" -> arrayOf("audio/*")
@@ -869,7 +881,20 @@ private fun WorldFilesScreen(
                 }
 
                 Surface(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .clickable(enabled = world.title == "Mi colección") {
+                            val mimeType = context.contentResolver.getType(uri) ?: "*/*"
+                            val openIntent = Intent(Intent.ACTION_VIEW)
+                                .setDataAndType(uri, mimeType)
+                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            runCatching {
+                                context.startActivity(
+                                    Intent.createChooser(openIntent, "Abrir archivo")
+                                )
+                            }
+                        },
                     color = Color(0xFF292348),
                     shape = RoundedCornerShape(14.dp)
                 ) {
@@ -877,15 +902,31 @@ private fun WorldFilesScreen(
                         modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            when (world.title) {
-                                "Creaciones" -> Icons.Filled.Image
-                                "Mi música" -> Icons.Filled.MusicNote
-                                else -> Icons.Filled.InsertDriveFile
-                            },
-                            contentDescription = null,
-                            tint = world.color
-                        )
+                        if (world.title == "Creaciones") {
+                            val previewBitmap = remember(file) {
+                                context.contentResolver.openInputStream(uri)?.use {
+                                    BitmapFactory.decodeStream(it)?.asImageBitmap()
+                                }
+                            }
+                            if (previewBitmap != null) {
+                                Image(
+                                    bitmap = previewBitmap,
+                                    contentDescription = fileName,
+                                    modifier = Modifier.size(64.dp),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(Icons.Filled.Image, null, tint = world.color)
+                            }
+                        } else {
+                            Icon(
+                                if (world.title == "Mi música")
+                                    Icons.Filled.MusicNote
+                                else Icons.Filled.InsertDriveFile,
+                                contentDescription = null,
+                                tint = world.color
+                            )
+                        }
 
                         Spacer(Modifier.width(10.dp))
 
@@ -895,6 +936,52 @@ private fun WorldFilesScreen(
                             modifier = Modifier.weight(1f),
                             maxLines = 2
                         )
+
+                        if (world.title == "Mi música") {
+                            IconButton(onClick = {
+                                val current = playerState.value
+
+                                if (activeFile == file && current != null) {
+                                    if (isPlaying) {
+                                        current.pause()
+                                        isPlaying = false
+                                    } else {
+                                        current.start()
+                                        isPlaying = true
+                                    }
+                                } else {
+                                    playerState.value?.release()
+                                    playerState.value = null
+                                    activeFile = null
+                                    isPlaying = false
+
+                                    val newPlayer = runCatching {
+                                        MediaPlayer.create(context, uri)
+                                    }.getOrNull()
+
+                                    if (newPlayer != null) {
+                                        playerState.value = newPlayer
+                                        activeFile = file
+                                        newPlayer.setOnCompletionListener {
+                                            it.release()
+                                            playerState.value = null
+                                            activeFile = null
+                                            isPlaying = false
+                                        }
+                                        newPlayer.start()
+                                        isPlaying = true
+                                    }
+                                }
+                            }) {
+                                Icon(
+                                    if (activeFile == file && isPlaying)
+                                        Icons.Filled.Pause
+                                    else Icons.Filled.PlayArrow,
+                                    contentDescription = "Reproducir o pausar",
+                                    tint = Cyan
+                                )
+                            }
+                        }
 
                         IconButton(onClick = {
                             selectedFiles.remove(file)
