@@ -587,15 +587,50 @@ private fun AvatarChoice(label: String, symbol: String, selected: Boolean, modif
 
 @Composable
 private fun WorldCard(world: World, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(22.dp)
+
     Column(
-        Modifier.fillMaxWidth().height(142.dp).clip(RoundedCornerShape(20.dp))
-            .background(Color(0xFF292348)).clickable { onClick() }.padding(14.dp),
+        Modifier.fillMaxWidth()
+            .height(158.dp)
+            .clip(shape)
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        world.color.copy(alpha = 0.38f),
+                        Color(0xFF292348),
+                        Color(0xFF17132F)
+                    )
+                ),
+                shape
+            )
+            .clickable { onClick() }
+            .padding(15.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Icon(world.icon, null, tint = world.color, modifier = Modifier.size(32.dp))
+        Icon(
+            world.icon,
+            contentDescription = null,
+            tint = world.color,
+            modifier = Modifier.size(42.dp)
+        )
         Column {
-            Text(world.title, color = Color.White, fontWeight = FontWeight.Bold)
-            Text(world.subtitle, color = Color(0xFFD8C5FF), fontSize = 11.sp)
+            Text(
+                world.title,
+                color = Color.White,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 16.sp
+            )
+            Text(
+                world.subtitle,
+                color = Color(0xFFD8C5FF),
+                fontSize = 11.sp
+            )
+            Text(
+                "EXPLORAR  ↗",
+                color = world.color,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -607,19 +642,51 @@ private fun CollectionCard(
     subtitle: String,
     onClick: () -> Unit
 ) {
+    val accent = when (title) {
+        "PERSONAJES" -> Pink
+        "EQUIPAMIENTOS" -> Cyan
+        else -> Purple
+    }
+
+    val shape = RoundedCornerShape(22.dp)
+
     Column(
         Modifier.fillMaxWidth()
-            .height(142.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color(0xFF292348))
+            .height(158.dp)
+            .clip(shape)
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        accent.copy(alpha = 0.42f),
+                        Color(0xFF292348),
+                        Color(0xFF17132F)
+                    )
+                ),
+                shape
+            )
             .clickable { onClick() }
-            .padding(14.dp),
+            .padding(15.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(symbol, fontSize = 32.sp)
+        Text(symbol, fontSize = 40.sp)
         Column {
-            Text(title, color = Color.White, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = Color(0xFFD8C5FF), fontSize = 11.sp)
+            Text(
+                title,
+                color = Color.White,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 15.sp
+            )
+            Text(
+                subtitle,
+                color = Color(0xFFD8C5FF),
+                fontSize = 11.sp
+            )
+            Text(
+                "DESCUBRIR  ↗",
+                color = accent,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
