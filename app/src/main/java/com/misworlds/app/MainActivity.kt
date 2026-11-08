@@ -87,8 +87,8 @@ private data class World(
 )
 
 private val worlds = listOf(
-    World("Mi-Arte", "Dibuja y crea", Icons.Filled.Palette, Color(0xFFE64E9B)),
-    World("Mi Proyecto", "Convierte ideas", Icons.Filled.Lightbulb, Color(0xFFF59E0B)),
+    World("Creaciones", "Dibuja y crea", Icons.Filled.Palette, Color(0xFFE64E9B)),
+    World("Mundos", "Convierte ideas", Icons.Filled.Lightbulb, Color(0xFFF59E0B)),
     World("Mi aventura", "Explora experiencias", Icons.Filled.Explore, Color(0xFF22B8A7)),
     World("Mi business", "Organiza tu negocio", Icons.Filled.Storefront, Color(0xFF3987EF)),
     World("Mi colección", "Guarda tus tesoros", Icons.Filled.Collections, Color(0xFFA16BDE)),
@@ -252,12 +252,12 @@ private fun MisWorldsApp(
                             }
                         }
                         item {
-                            CollectionCard("DTF'S", "🎨", "Diseños para impresión") {
+                            CollectionCard("PERSONAJES", "🎨", "Diseños para impresión") {
                                 screen = "dtf"
                             }
                         }
                         item {
-                            CollectionCard("PNG'S", "🖼️", "Imágenes digitales") {
+                            CollectionCard("EQUIPAMIENTOS", "🖼️", "Imágenes digitales") {
                                 screen = "png"
                             }
                         }
@@ -305,11 +305,11 @@ private fun MisWorldsApp(
             )
 
             "png" -> OnboardingFrame(
-                "🖼️ PNG'S",
-                "Tu colección de imágenes digitales."
+                "🖼️ EQUIPAMIENTOS",
+                "Tu colección de equipamientos digitales."
             ) {
                 Text(
-                    "Próximamente encontrarás imágenes PNG.",
+                    "Próximamente encontrarás equipamientos digitales.",
                     color = Color.White,
                     textAlign = TextAlign.Center
                 )
@@ -378,7 +378,14 @@ private fun DtfCatalogScreen(
         Modifier.fillMaxSize().padding(18.dp).verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("🎨 COLECCIÓN DTF", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start
+        ) {
+            MWBackButton(onBack = onBack)
+        }
+
+        Text("🎨 PERSONAJES", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black)
         Text("Descubre diseños ocultos del multiverso.", color = Color(0xFFD8C5FF))
         Spacer(Modifier.height(16.dp))
 
@@ -386,7 +393,7 @@ private fun DtfCatalogScreen(
             color = Gold, fontWeight = FontWeight.Bold)
 
         MWButton("GANAR 50 XP · DEMOSTRACIÓN", onClick = onEarnXp)
-        MWButton("VER LOS 48 DISEÑOS", onClick = onOpenGallery)
+        MWButton("VER LOS 48 PERSONAJES", onClick = onOpenGallery)
 
         dtfDesigns.forEach { design ->
             val isUnlocked = design.id in unlocked
@@ -459,6 +466,13 @@ private fun DtfGalleryScreen(onBack: () -> Unit) {
         Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start
+        ) {
+            MWBackButton(onBack = onBack)
+        }
+
         Text(
             "🌌 GALERÍA DTF",
             color = Color.White,
@@ -617,3 +631,27 @@ private fun fieldColors() = OutlinedTextFieldDefaults.colors(
     focusedLabelColor = Color(0xFFD8B8FF), unfocusedLabelColor = Color(0xFFD8C5FF),
     cursorColor = Pink
 )
+
+@Composable
+private fun MWBackButton(onBack: () -> Unit) {
+    IconButton(onClick = onBack) {
+        Icon(
+            Icons.Filled.ArrowBack,
+            contentDescription = "Regresar",
+            tint = Cyan,
+            modifier = Modifier.size(30.dp)
+        )
+    }
+}
+
+@Composable
+private fun MWBackButton(onBack: () -> Unit) {
+    IconButton(onClick = onBack) {
+        Icon(
+            Icons.Filled.ArrowBack,
+            contentDescription = "Regresar",
+            tint = Cyan,
+            modifier = Modifier.size(30.dp)
+        )
+    }
+}
