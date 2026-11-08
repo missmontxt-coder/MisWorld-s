@@ -644,14 +644,4 @@ private fun MWBackButton(onBack: () -> Unit) {
     }
 }
 
-@Composable
-private fun MWBackButton(onBack: () -> Unit) {
-    IconButton(onClick = onBack) {
-        Icon(
-            Icons.Filled.ArrowBack,
-            contentDescription = "Regresar",
-            tint = Cyan,
-            modifier = Modifier.size(30.dp)
-        )
-    }
-}
+
