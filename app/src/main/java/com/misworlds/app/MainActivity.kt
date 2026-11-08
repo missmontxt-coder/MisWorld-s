@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -49,6 +51,16 @@ class MainActivity : ComponentActivity() {
                 MisWorldsApp(
                     saved = prefs.getBoolean("onboarding_done", false),
                     savedName = prefs.getString("display_name", "") ?: "",
+                    savedDtfCoins = prefs.getInt("dtf_coins", 120),
+                    savedDtfXp = prefs.getInt("dtf_xp", 0),
+                    savedDtfUnlocked = prefs.getStringSet("dtf_unlocked", emptySet())?.toSet() ?: emptySet(),
+                    onSaveDtfProgress = { coins, xp, unlocked ->
+                        prefs.edit()
+                            .putInt("dtf_coins", coins)
+                            .putInt("dtf_xp", xp)
+                            .putStringSet("dtf_unlocked", unlocked)
+                            .apply()
+                    },
                     onSave = { name, age, gender, avatar ->
                         prefs.edit()
                             .putBoolean("onboarding_done", true)
@@ -86,7 +98,11 @@ private fun MisWorldsApp(
     saved: Boolean,
     savedName: String,
     onSave: (String, String, String, String) -> Unit,
-    onReset: () -> Unit
+    onReset: () -> Unit,
+    savedDtfCoins: Int,
+    savedDtfXp: Int,
+    savedDtfUnlocked: Set<String>,
+    onSaveDtfProgress: (Int, Int, Set<String>) -> Unit
 ) {
     var screen by remember { mutableStateOf(if (saved) "home" else "splash") }
     var age by remember { mutableStateOf("18–24") }
@@ -94,6 +110,20 @@ private fun MisWorldsApp(
     var gender by remember { mutableStateOf("Oculto") }
     var avatar by remember { mutableStateOf("Burbuja") }
     var selectedWorld by remember { mutableStateOf<World?>(null) }
+    var dtfCoins by remember { mutableStateOf(savedDtfCoins) }
+    var dtfXp by remember { mutableStateOf(savedDtfXp) }
+    var dtfUnlocked by remember { mutableStateOf(savedDtfUnlocked) }
+
+    fun saveDtf(
+        coins: Int = dtfCoins,
+        xp: Int = dtfXp,
+        unlocked: Set<String> = dtfUnlocked
+    ) {
+        dtfCoins = coins
+        dtfXp = xp
+        dtfUnlocked = unlocked
+        onSaveDtfProgress(coins, xp, unlocked)
+    }
 
     Box(
         modifier = Modifier.fillMaxSize().background(
@@ -230,21 +260,50 @@ private fun MisWorldsApp(
                 }
             }
 
-            "dtf", "png" -> {
-                val isDtf = screen == "dtf"
-                OnboardingFrame(
-                    if (isDtf) "🎨 DTF'S" else "🖼️ PNG'S",
-                    if (isDtf) "Diseños para impresión textil."
-                    else "Tu colección de imágenes digitales."
-                ) {
-                    Text(
-                        if (isDtf) "Próximamente encontrarás diseños listos para DTF."
-                        else "Próximamente encontrarás imágenes PNG.",
-                        color = Color.White,
-                        textAlign = TextAlign.Center
-                    )
-                    MWButton("VOLVER AL MENÚ") { screen = "home" }
-                }
+            "dtf" -> {
+                DtfCatalogScreen(
+                    coins = dtfCoins,
+                    xp = dtfXp,
+                    unlocked = dtfUnlocked,
+                    onEarnXp = { saveDtf(xp = dtfXp + 50) },
+                    onUnlock = { design ->
+                        if (design.id !in dtfUnlocked &&
+                            !design.eventOnly &&
+                            design.secretCode.isBlank() &&
+                            dtfCoins >= design.coins &&
+                            dtfXp >= design.requiredXp
+                        ) {
+                            saveDtf(
+                                coins = dtfCoins - design.coins,
+                                unlocked = dtfUnlocked + design.id
+                            )
+                        }
+                    },
+                    onRedeemCode = { code ->
+                        val legendary = dtfDesigns.first { it.id == "legendary" }
+                        if (code.trim().uppercase() == legendary.secretCode &&
+                            legendary.id !in dtfUnlocked
+                        ) {
+                            saveDtf(unlocked = dtfUnlocked + legendary.id)
+                            true
+                        } else {
+                            false
+                        }
+                    },
+                    onBack = { screen = "home" }
+                )
+            }
+
+            "png" -> OnboardingFrame(
+                "🖼️ PNG'S",
+                "Tu colección de imágenes digitales."
+            ) {
+                Text(
+                    "Próximamente encontrarás imágenes PNG.",
+                    color = Color.White,
+                    textAlign = TextAlign.Center
+                )
+                MWButton("VOLVER AL MENÚ") { screen = "home" }
             }
 
             "world" -> {
@@ -267,6 +326,117 @@ private fun MisWorldsApp(
                 }
             }
         }
+    }
+}
+
+private data class DtfDesign(
+    val id: String,
+    val name: String,
+    val symbol: String,
+    val rarity: String,
+    val description: String,
+    val coins: Int = 0,
+    val requiredXp: Int = 0,
+    val secretCode: String = "",
+    val eventOnly: Boolean = false
+)
+
+private val dtfDesigns = listOf(
+    DtfDesign("nebula", "Nebulosa", "✦", "COMÚN", "Un misterio cósmico.", coins = 30),
+    DtfDesign("planet", "Planeta oculto", "◉", "COMÚN", "Un mundo por descubrir.", coins = 40),
+    DtfDesign("guardian", "Guardián estelar", "♢", "RARO", "Una criatura dimensional.", requiredXp = 100),
+    DtfDesign("dragon", "Dragón cósmico", "♜", "ÉPICO", "Una fuerza galáctica.", coins = 60, requiredXp = 150),
+    DtfDesign("legendary", "Portal legendario", "⌘", "LEGENDARIO", "Un secreto del multiverso.", secretCode = "MISWORLDS"),
+    DtfDesign("mythic", "Fénix del multiverso", "✧", "MÍTICO", "Disponible en eventos.", eventOnly = true)
+)
+
+@Composable
+private fun DtfCatalogScreen(
+    coins: Int,
+    xp: Int,
+    unlocked: Set<String>,
+    onEarnXp: () -> Unit,
+    onUnlock: (DtfDesign) -> Unit,
+    onRedeemCode: (String) -> Boolean,
+    onBack: () -> Unit
+) {
+    var code by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("") }
+
+    Column(
+        Modifier.fillMaxSize().padding(18.dp).verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("🎨 COLECCIÓN DTF", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black)
+        Text("Descubre diseños ocultos del multiverso.", color = Color(0xFFD8C5FF))
+        Spacer(Modifier.height(16.dp))
+
+        Text("🪙 $coins monedas     ⭐ $xp XP     ${unlocked.size}/6 diseños",
+            color = Gold, fontWeight = FontWeight.Bold)
+
+        MWButton("GANAR 50 XP · DEMOSTRACIÓN", onClick = onEarnXp)
+
+        dtfDesigns.forEach { design ->
+            val isUnlocked = design.id in unlocked
+            val canUnlock = !isUnlocked && !design.eventOnly &&
+                design.secretCode.isBlank() && coins >= design.coins &&
+                xp >= design.requiredXp
+
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 6.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(Color(0xFF292348)).padding(14.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (isUnlocked) design.symbol else "◈",
+                        color = if (isUnlocked) Gold else Color(0xFF45405B),
+                        fontSize = 42.sp
+                    )
+                    Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                        Text(if (isUnlocked) design.name else "Diseño oculto",
+                            color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(design.rarity, color = Gold, fontSize = 12.sp)
+                        Text(if (isUnlocked) "Desbloqueado" else design.description,
+                            color = Color(0xFFD8C5FF), fontSize = 12.sp)
+                    }
+                }
+
+                when {
+                    isUnlocked -> Text("✓ EN TU COLECCIÓN", color = Cyan)
+                    design.eventOnly -> Text("🔒 Evento especial futuro", color = Pink)
+                    design.secretCode.isNotBlank() -> Text("🔐 Requiere código secreto", color = Pink)
+                    else -> {
+                        Text("${design.coins} monedas · ${design.requiredXp} XP",
+                            color = Color.White, fontSize = 12.sp)
+                        MWButton("DESBLOQUEAR", enabled = canUnlock) {
+                            onUnlock(design)
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Text("CÓDIGO SECRETO", color = Gold, fontWeight = FontWeight.Bold)
+        OutlinedTextField(
+            value = code,
+            onValueChange = { code = it.take(30) },
+            label = { Text("Introduce tu código") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            colors = fieldColors()
+        )
+        MWButton("CANJEAR CÓDIGO", enabled = code.isNotBlank()) {
+            message = if (onRedeemCode(code)) {
+                code = ""
+                "¡Portal legendario desbloqueado!"
+            } else "Código incorrecto o ya utilizado."
+        }
+        if (message.isNotBlank()) Text(message, color = Cyan)
+
+        Spacer(Modifier.height(12.dp))
+        MWButton("VOLVER AL MENÚ", onClick = onBack)
     }
 }
 
