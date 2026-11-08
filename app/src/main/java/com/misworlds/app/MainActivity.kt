@@ -1,9 +1,11 @@
 package com.misworlds.app
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -22,11 +24,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -290,9 +295,14 @@ private fun MisWorldsApp(
                             false
                         }
                     },
+                    onOpenGallery = { screen = "dtf_gallery" },
                     onBack = { screen = "home" }
                 )
             }
+
+            "dtf_gallery" -> DtfGalleryScreen(
+                onBack = { screen = "dtf" }
+            )
 
             "png" -> OnboardingFrame(
                 "🖼️ PNG'S",
@@ -358,6 +368,7 @@ private fun DtfCatalogScreen(
     onEarnXp: () -> Unit,
     onUnlock: (DtfDesign) -> Unit,
     onRedeemCode: (String) -> Boolean,
+    onOpenGallery: () -> Unit,
     onBack: () -> Unit
 ) {
     var code by remember { mutableStateOf("") }
@@ -375,6 +386,7 @@ private fun DtfCatalogScreen(
             color = Gold, fontWeight = FontWeight.Bold)
 
         MWButton("GANAR 50 XP · DEMOSTRACIÓN", onClick = onEarnXp)
+        MWButton("VER LOS 48 DISEÑOS", onClick = onOpenGallery)
 
         dtfDesigns.forEach { design ->
             val isUnlocked = design.id in unlocked
@@ -437,6 +449,73 @@ private fun DtfCatalogScreen(
 
         Spacer(Modifier.height(12.dp))
         MWButton("VOLVER AL MENÚ", onClick = onBack)
+    }
+}
+
+
+@Composable
+private fun DtfGalleryScreen(onBack: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            "🌌 GALERÍA DTF",
+            color = Color.White,
+            fontSize = 26.sp,
+            fontWeight = FontWeight.Black
+        )
+        Text(
+            "48 diseños originales · NEON FIRST EDITION",
+            color = Color(0xFFD8C5FF)
+        )
+        Spacer(Modifier.height(12.dp))
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(bottom = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items((1..48).toList()) { number ->
+                DtfPreviewCard(number)
+            }
+        }
+
+        MWButton("VOLVER A COLECCIÓN DTF", onClick = onBack)
+    }
+}
+
+@Composable
+private fun DtfPreviewCard(number: Int) {
+    val context = LocalContext.current
+    val fileName = "dtf_preview/${number.toString().padStart(3, '0')}.png"
+    val bitmap = remember(number) {
+        context.assets.open(fileName).use {
+            BitmapFactory.decodeStream(it).asImageBitmap()
+        }
+    }
+
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF292348))
+            .padding(10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Image(
+            bitmap = bitmap,
+            contentDescription = "Diseño DTF ${number.toString().padStart(3, '0')}",
+            modifier = Modifier.fillMaxWidth().height(150.dp),
+            contentScale = ContentScale.Fit
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "DISEÑO ${number.toString().padStart(3, '0')}/048",
+            color = Gold,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
