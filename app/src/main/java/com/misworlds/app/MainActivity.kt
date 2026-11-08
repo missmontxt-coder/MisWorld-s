@@ -211,9 +211,39 @@ private fun MisWorldsApp(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(worlds) { world ->
-                            WorldCard(world) { selectedWorld = world; screen = "world" }
+                            WorldCard(world) {
+                                selectedWorld = world
+                                screen = "world"
+                            }
+                        }
+                        item {
+                            CollectionCard("DTF'S", "🎨", "Diseños para impresión") {
+                                screen = "dtf"
+                            }
+                        }
+                        item {
+                            CollectionCard("PNG'S", "🖼️", "Imágenes digitales") {
+                                screen = "png"
+                            }
                         }
                     }
+                }
+            }
+
+            "dtf", "png" -> {
+                val isDtf = screen == "dtf"
+                OnboardingFrame(
+                    if (isDtf) "🎨 DTF'S" else "🖼️ PNG'S",
+                    if (isDtf) "Diseños para impresión textil."
+                    else "Tu colección de imágenes digitales."
+                ) {
+                    Text(
+                        if (isDtf) "Próximamente encontrarás diseños listos para DTF."
+                        else "Próximamente encontrarás imágenes PNG.",
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                    MWButton("VOLVER AL MENÚ") { screen = "home" }
                 }
             }
 
@@ -303,6 +333,30 @@ private fun WorldCard(world: World, onClick: () -> Unit) {
         Column {
             Text(world.title, color = Color.White, fontWeight = FontWeight.Bold)
             Text(world.subtitle, color = Color(0xFFD8C5FF), fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+private fun CollectionCard(
+    title: String,
+    symbol: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Column(
+        Modifier.fillMaxWidth()
+            .height(142.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color(0xFF292348))
+            .clickable { onClick() }
+            .padding(14.dp),
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(symbol, fontSize = 32.sp)
+        Column {
+            Text(title, color = Color.White, fontWeight = FontWeight.Bold)
+            Text(subtitle, color = Color(0xFFD8C5FF), fontSize = 11.sp)
         }
     }
 }
