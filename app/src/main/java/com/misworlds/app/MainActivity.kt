@@ -173,8 +173,8 @@ private fun MisWorldsApp(
 
             "avatar" -> OnboardingFrame("Elige tu primer avatar", "Podrás personalizarlo más adelante.") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    AvatarChoice("Burbuja", "●", avatar == "Burbuja") { avatar = "Burbuja" }
-                    AvatarChoice("Silueta", "◉", avatar == "Silueta") { avatar = "Silueta" }
+                    AvatarChoice("Burbuja", "●", avatar == "Burbuja", Modifier.weight(1f)) { avatar = "Burbuja" }
+                    AvatarChoice("Silueta", "◉", avatar == "Silueta", Modifier.weight(1f)) { avatar = "Silueta" }
                 }
                 MWButton("CONTINUAR") { screen = "account" }
             }
@@ -280,9 +280,9 @@ private fun SelectRow(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun AvatarChoice(label: String, symbol: String, selected: Boolean, onClick: () -> Unit) {
+private fun AvatarChoice(label: String, symbol: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Column(
-        Modifier.weight(1f).clip(RoundedCornerShape(20.dp))
+        modifier.clip(RoundedCornerShape(20.dp))
             .background(if (selected) Color(0xFF59418A) else Color(0xFF292348))
             .clickable { onClick() }.padding(22.dp),
         horizontalAlignment = Alignment.CenterHorizontally
