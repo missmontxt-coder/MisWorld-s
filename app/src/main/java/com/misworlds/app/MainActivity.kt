@@ -62,10 +62,10 @@ class MainActivity : ComponentActivity() {
                 MisWorldsApp(
                     saved = prefs.getBoolean("onboarding_done", false),
                     savedName = prefs.getString("display_name", "") ?: "",
-                    savedDtfCoins = prefs.getInt("dtf_coins", 120),
-                    savedDtfXp = prefs.getInt("dtf_xp", 0),
-                    savedDtfUnlocked = prefs.getStringSet("dtf_unlocked", emptySet())?.toSet() ?: emptySet(),
-                    onSaveDtfProgress = { coins, xp, unlocked ->
+                    savedCharacterCoins = prefs.getInt("dtf_coins", 120),
+                    savedCharacterXp = prefs.getInt("dtf_xp", 0),
+                    savedCharacterUnlocked = prefs.getStringSet("dtf_unlocked", emptySet())?.toSet() ?: emptySet(),
+                    onSaveCharacterProgress = { coins, xp, unlocked ->
                         prefs.edit()
                             .putInt("dtf_coins", coins)
                             .putInt("dtf_xp", xp)
@@ -110,10 +110,10 @@ private fun MisWorldsApp(
     savedName: String,
     onSave: (String, String, String, String) -> Unit,
     onReset: () -> Unit,
-    savedDtfCoins: Int,
-    savedDtfXp: Int,
-    savedDtfUnlocked: Set<String>,
-    onSaveDtfProgress: (Int, Int, Set<String>) -> Unit
+    savedCharacterCoins: Int,
+    savedCharacterXp: Int,
+    savedCharacterUnlocked: Set<String>,
+    onSaveCharacterProgress: (Int, Int, Set<String>) -> Unit
 ) {
     var screen by remember { mutableStateOf(if (saved) "home" else "splash") }
     var age by remember { mutableStateOf("18–24") }
@@ -121,19 +121,19 @@ private fun MisWorldsApp(
     var gender by remember { mutableStateOf("Oculto") }
     var avatar by remember { mutableStateOf("Burbuja") }
     var selectedWorld by remember { mutableStateOf<World?>(null) }
-    var dtfCoins by remember { mutableStateOf(savedDtfCoins) }
-    var dtfXp by remember { mutableStateOf(savedDtfXp) }
-    var dtfUnlocked by remember { mutableStateOf(savedDtfUnlocked) }
+    var characterCoins by remember { mutableStateOf(savedCharacterCoins) }
+    var characterXp by remember { mutableStateOf(savedCharacterXp) }
+    var characterUnlocked by remember { mutableStateOf(savedCharacterUnlocked) }
 
-    fun saveDtf(
-        coins: Int = dtfCoins,
-        xp: Int = dtfXp,
-        unlocked: Set<String> = dtfUnlocked
+    fun saveCharacterProgress(
+        coins: Int = characterCoins,
+        xp: Int = characterXp,
+        unlocked: Set<String> = characterUnlocked
     ) {
-        dtfCoins = coins
-        dtfXp = xp
-        dtfUnlocked = unlocked
-        onSaveDtfProgress(coins, xp, unlocked)
+        characterCoins = coins
+        characterXp = xp
+        characterUnlocked = unlocked
+        onSaveCharacterProgress(coins, xp, unlocked)
     }
 
     Box(
@@ -258,8 +258,8 @@ private fun MisWorldsApp(
                             }
                         }
                         item {
-                            CollectionCard("PERSONAJES", "🎨", "Diseños para impresión") {
-                                screen = "dtf"
+                            CollectionCard("PERSONAJES", "🎨", "Colecciona y descubre personajes") {
+                                screen = "characters"
                             }
                         }
                         item {
@@ -271,43 +271,43 @@ private fun MisWorldsApp(
                 }
             }
 
-            "dtf" -> {
-                DtfCatalogScreen(
-                    coins = dtfCoins,
-                    xp = dtfXp,
-                    unlocked = dtfUnlocked,
-                    onEarnXp = { saveDtf(xp = dtfXp + 50) },
+            "characters" -> {
+                CharacterCatalogScreen(
+                    coins = characterCoins,
+                    xp = characterXp,
+                    unlocked = characterUnlocked,
+                    onEarnXp = { saveCharacterProgress(xp = characterXp + 50) },
                     onUnlock = { design ->
-                        if (design.id !in dtfUnlocked &&
+                        if (design.id !in characterUnlocked &&
                             !design.eventOnly &&
                             design.secretCode.isBlank() &&
-                            dtfCoins >= design.coins &&
-                            dtfXp >= design.requiredXp
+                            characterCoins >= design.coins &&
+                            characterXp >= design.requiredXp
                         ) {
-                            saveDtf(
-                                coins = dtfCoins - design.coins,
-                                unlocked = dtfUnlocked + design.id
+                            saveCharacterProgress(
+                                coins = characterCoins - design.coins,
+                                unlocked = characterUnlocked + design.id
                             )
                         }
                     },
                     onRedeemCode = { code ->
-                        val legendary = dtfDesigns.first { it.id == "legendary" }
+                        val legendary = characterDesigns.first { it.id == "legendary" }
                         if (code.trim().uppercase() == legendary.secretCode &&
-                            legendary.id !in dtfUnlocked
+                            legendary.id !in characterUnlocked
                         ) {
-                            saveDtf(unlocked = dtfUnlocked + legendary.id)
+                            saveCharacterProgress(unlocked = characterUnlocked + legendary.id)
                             true
                         } else {
                             false
                         }
                     },
-                    onOpenGallery = { screen = "dtf_gallery" },
+                    onOpenGallery = { screen = "characters_gallery" },
                     onBack = { screen = "home" }
                 )
             }
 
-            "dtf_gallery" -> DtfGalleryScreen(
-                onBack = { screen = "dtf" }
+            "characters_gallery" -> CharacterGalleryScreen(
+                onBack = { screen = "characters" }
             )
 
             "png" -> OnboardingFrame(
@@ -324,7 +324,9 @@ private fun MisWorldsApp(
 
             "world" -> {
                 val world = selectedWorld
-                if (world != null && world.title in listOf(
+                if (world != null && world.title == "Mi business") {
+                    BusinessScreen { screen = "home" }
+                } else if (world != null && world.title in listOf(
                         "Creaciones", "Mi colección", "Mi música"
                     )
                 ) {
@@ -354,7 +356,203 @@ private fun MisWorldsApp(
     }
 }
 
-private data class DtfDesign(
+
+
+@Composable
+private fun BusinessScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember {
+        context.getSharedPreferences("misworlds_business", Context.MODE_PRIVATE)
+    }
+
+    var name by remember { mutableStateOf(prefs.getString("business_name", "") ?: "") }
+    var category by remember { mutableStateOf(prefs.getString("business_category", "") ?: "") }
+    var description by remember { mutableStateOf(prefs.getString("business_description", "") ?: "") }
+    var phone by remember { mutableStateOf(prefs.getString("business_phone", "") ?: "") }
+    var promotion by remember { mutableStateOf(prefs.getString("business_promotion", "") ?: "") }
+    var saved by remember { mutableStateOf(false) }
+
+    Column(
+        Modifier.fillMaxSize()
+            .background(Color(0xFF111827))
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Text(
+            "MI BUSINESS",
+            color = Color(0xFF60A5FA),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Text(
+            "Tu negocio comienza aquí",
+            color = Color.White,
+            fontSize = 27.sp,
+            fontWeight = FontWeight.Black
+        )
+
+        Text(
+            "Administra tu negocio y prepárate para conseguir clientes.",
+            color = Color.LightGray
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Column(
+                Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("PERFIL DE MI NEGOCIO", color = Color(0xFF60A5FA),
+                    fontWeight = FontWeight.Bold)
+
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it; saved = false },
+                    label = { Text("Nombre del negocio") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = category,
+                    onValueChange = { category = it; saved = false },
+                    label = { Text("Categoría o actividad") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it; saved = false },
+                    label = { Text("¿Qué ofreces a tus clientes?") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = { phone = it; saved = false },
+                    label = { Text("Teléfono de contacto") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = promotion,
+                    onValueChange = { promotion = it; saved = false },
+                    label = { Text("Promoción u oferta actual") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+
+                Button(
+                    onClick = {
+                        prefs.edit()
+                            .putString("business_name", name)
+                            .putString("business_category", category)
+                            .putString("business_description", description)
+                            .putString("business_phone", phone)
+                            .putString("business_promotion", promotion)
+                            .apply()
+                        saved = true
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("GUARDAR MI NEGOCIO")
+                }
+
+                if (saved) {
+                    Text("✓ Información guardada correctamente.",
+                        color = Color(0xFF4ADE80))
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Column(
+                Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("CONSIGUE CLIENTES",
+                    color = Color(0xFF60A5FA),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold)
+
+                Text(
+                    "Comparte tu negocio con tus posibles clientes por WhatsApp, Facebook u otras aplicaciones.",
+                    color = Color.LightGray
+                )
+
+                Button(
+                    onClick = {
+                        val message = """
+                            ¡Hola! Te presentamos ${name.ifBlank { "nuestro negocio" }}.
+
+                            ${category}
+                            ${description}
+
+                            ${if (promotion.isNotBlank()) "PROMOCIÓN: $promotion" else ""}
+                            Contacto: ${phone}
+                        """.trimIndent()
+
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, message)
+                        }
+                        context.startActivity(
+                            Intent.createChooser(intent, "Compartir mi negocio")
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = name.isNotBlank() && description.isNotBlank()
+                ) {
+                    Text("COMPARTIR MI NEGOCIO")
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Column(Modifier.padding(18.dp)) {
+                Text("PRÓXIMAS HERRAMIENTAS",
+                    color = Color(0xFF60A5FA),
+                    fontWeight = FontWeight.Bold)
+
+                listOf(
+                    "🛍️ Catálogo de productos",
+                    "👥 Registro de clientes",
+                    "📦 Control de pedidos",
+                    "📣 Publicidad y promociones",
+                    "📊 Estadísticas de ventas"
+                ).forEach {
+                    Text(it, color = Color.White,
+                        modifier = Modifier.padding(vertical = 8.dp))
+                }
+            }
+        }
+
+        OutlinedButton(
+            onClick = onBack,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("VOLVER A MIS MUNDOS")
+        }
+    }
+}
+
+private data class CharacterDesign(
     val id: String,
     val name: String,
     val symbol: String,
@@ -366,22 +564,22 @@ private data class DtfDesign(
     val eventOnly: Boolean = false
 )
 
-private val dtfDesigns = listOf(
-    DtfDesign("nebula", "Nebulosa", "✦", "COMÚN", "Un misterio cósmico.", coins = 30),
-    DtfDesign("planet", "Planeta oculto", "◉", "COMÚN", "Un mundo por descubrir.", coins = 40),
-    DtfDesign("guardian", "Guardián estelar", "♢", "RARO", "Una criatura dimensional.", requiredXp = 100),
-    DtfDesign("dragon", "Dragón cósmico", "♜", "ÉPICO", "Una fuerza galáctica.", coins = 60, requiredXp = 150),
-    DtfDesign("legendary", "Portal legendario", "⌘", "LEGENDARIO", "Un secreto del multiverso.", secretCode = "MISWORLDS"),
-    DtfDesign("mythic", "Fénix del multiverso", "✧", "MÍTICO", "Disponible en eventos.", eventOnly = true)
+private val characterDesigns = listOf(
+    CharacterDesign("nebula", "Nebulosa", "✦", "COMÚN", "Un misterio cósmico.", coins = 30),
+    CharacterDesign("planet", "Planeta oculto", "◉", "COMÚN", "Un mundo por descubrir.", coins = 40),
+    CharacterDesign("guardian", "Guardián estelar", "♢", "RARO", "Una criatura dimensional.", requiredXp = 100),
+    CharacterDesign("dragon", "Dragón cósmico", "♜", "ÉPICO", "Una fuerza galáctica.", coins = 60, requiredXp = 150),
+    CharacterDesign("legendary", "Portal legendario", "⌘", "LEGENDARIO", "Un secreto del multiverso.", secretCode = "MISWORLDS"),
+    CharacterDesign("mythic", "Fénix del multiverso", "✧", "MÍTICO", "Disponible en eventos.", eventOnly = true)
 )
 
 @Composable
-private fun DtfCatalogScreen(
+private fun CharacterCatalogScreen(
     coins: Int,
     xp: Int,
     unlocked: Set<String>,
     onEarnXp: () -> Unit,
-    onUnlock: (DtfDesign) -> Unit,
+    onUnlock: (CharacterDesign) -> Unit,
     onRedeemCode: (String) -> Boolean,
     onOpenGallery: () -> Unit,
     onBack: () -> Unit
@@ -401,16 +599,16 @@ private fun DtfCatalogScreen(
         }
 
         Text("🎨 PERSONAJES", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black)
-        Text("Descubre diseños ocultos del multiverso.", color = Color(0xFFD8C5FF))
+        Text("Descubre personajes ocultos del multiverso.", color = Color(0xFFD8C5FF))
         Spacer(Modifier.height(16.dp))
 
-        Text("🪙 $coins monedas     ⭐ $xp XP     ${unlocked.size}/6 diseños",
+        Text("🪙 $coins monedas     ⭐ $xp XP     ${unlocked.size}/6 personajes",
             color = Gold, fontWeight = FontWeight.Bold)
 
         MWButton("GANAR 50 XP · DEMOSTRACIÓN", onClick = onEarnXp)
         MWButton("VER LOS 48 PERSONAJES", onClick = onOpenGallery)
 
-        dtfDesigns.forEach { design ->
+        characterDesigns.forEach { design ->
             val isUnlocked = design.id in unlocked
             val canUnlock = !isUnlocked && !design.eventOnly &&
                 design.secretCode.isBlank() && coins >= design.coins &&
@@ -476,7 +674,7 @@ private fun DtfCatalogScreen(
 
 
 @Composable
-private fun DtfGalleryScreen(onBack: () -> Unit) {
+private fun CharacterGalleryScreen(onBack: () -> Unit) {
     Column(
         Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -489,13 +687,13 @@ private fun DtfGalleryScreen(onBack: () -> Unit) {
         }
 
         Text(
-            "🌌 GALERÍA DTF",
+            "🌌 GALERÍA DE PERSONAJES",
             color = Color.White,
             fontSize = 26.sp,
             fontWeight = FontWeight.Black
         )
         Text(
-            "48 diseños originales · NEON FIRST EDITION",
+            "48 personajes originales · NEON FIRST EDITION",
             color = Color(0xFFD8C5FF)
         )
         Spacer(Modifier.height(12.dp))
@@ -508,16 +706,16 @@ private fun DtfGalleryScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items((1..48).toList()) { number ->
-                DtfPreviewCard(number)
+                CharacterPreviewCard(number)
             }
         }
 
-        MWButton("VOLVER A COLECCIÓN DTF", onClick = onBack)
+        MWButton("VOLVER A COLECCIÓN DE PERSONAJES", onClick = onBack)
     }
 }
 
 @Composable
-private fun DtfPreviewCard(number: Int) {
+private fun CharacterPreviewCard(number: Int) {
     val context = LocalContext.current
     val fileName = "dtf_preview/${number.toString().padStart(3, '0')}.png"
     val bitmap = remember(number) {
@@ -535,13 +733,13 @@ private fun DtfPreviewCard(number: Int) {
     ) {
         Image(
             bitmap = bitmap,
-            contentDescription = "Diseño DTF ${number.toString().padStart(3, '0')}",
+            contentDescription = "Personaje ${number.toString().padStart(3, '0')}",
             modifier = Modifier.fillMaxWidth().height(150.dp),
             contentScale = ContentScale.Fit
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            "DISEÑO ${number.toString().padStart(3, '0')}/048",
+            "PERSONAJE ${number.toString().padStart(3, '0')}/048",
             color = Gold,
             fontWeight = FontWeight.Bold
         )
