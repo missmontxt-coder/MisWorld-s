@@ -3,7 +3,7 @@ name: Build MisWorlds APK
 on:
   workflow_dispatch:
   push:
-    branches: ["main"]
+    branches: ["main", "integrar-github"]
   pull_request:
     branches: ["main"]
 
